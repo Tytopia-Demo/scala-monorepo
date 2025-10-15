@@ -1,0 +1,7 @@
+---
+version: 1
+component:
+  name: subdirect
+  type: service
+  lifecycle: generally_available
+  tier: tier_1
