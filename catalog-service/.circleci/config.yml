@@ -6,23 +6,60 @@ orbs:
 # Define the jobs we want to run for this project
 jobs:
   build:
+    # Right-sized runner for build workloads
+    resource_class: medium  # 2 vCPUs, 4GB RAM - appropriate for Scala builds
     docker:
       - image: circleci/<language>:<version TAG>
         auth:
           username: mydockerhub-user
           password: $DOCKERHUB_PASSWORD  # context / project UI env-var reference
+    environment:
+      # Cost monitoring and tracking labels
+      COST_CENTER: "build"
+      RUNNER_SIZE: "medium"
+      PROJECT: "catalog-service"
     steps:
       - checkout
+      - run:
+          name: Job Start Time
+          command: echo "export JOB_START_TIME=$(date +%s)" >> $BASH_ENV
       - run: echo "this is the build job"
+      - run:
+          name: Job Duration
+          command: |
+            END_TIME=$(date +%s)
+            DURATION=$((END_TIME - JOB_START_TIME))
+            echo "Job duration: ${DURATION}s"
+            echo "Cost Center: build, Runner Size: medium"
+          when: always
+
   test:
+    # Right-sized runner for test workloads
+    resource_class: small  # 1 vCPU, 2GB RAM - sufficient for basic tests
     docker:
       - image: circleci/<language>:<version TAG>
         auth:
           username: mydockerhub-user
           password: $DOCKERHUB_PASSWORD  # context / project UI env-var reference
+    environment:
+      # Cost monitoring and tracking labels
+      COST_CENTER: "testing"
+      RUNNER_SIZE: "small"
+      PROJECT: "catalog-service"
     steps:
       - checkout
+      - run:
+          name: Job Start Time
+          command: echo "export JOB_START_TIME=$(date +%s)" >> $BASH_ENV
       - run: echo "this is the test job"
+      - run:
+          name: Job Duration
+          command: |
+            END_TIME=$(date +%s)
+            DURATION=$((END_TIME - JOB_START_TIME))
+            echo "Job duration: ${DURATION}s"
+            echo "Cost Center: testing, Runner Size: small"
+          when: always
 
 # Orchestrate our job run sequence
 workflows:

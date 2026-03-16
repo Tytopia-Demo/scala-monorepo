@@ -1,0 +1,59 @@
+# Reusable workflow template for security scanning jobs
+# This template demonstrates proper runner sizing for security scanning workloads
+
+name: Security Scan Template
+
+on:
+  workflow_call:
+    inputs:
+      scan-type:
+        description: 'Type of security scan: sast, sca, or both'
+        required: false
+        type: string
+        default: 'both'
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 10
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest  # Small runner is sufficient for security scans
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      COST_CENTER: "security"
+      RUNNER_SIZE: "small"
+      PROJECT: ${{ github.event.repository.name }}
+
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Security Scan
+        run: |
+          echo "Running ${{ inputs.scan-type }} security scan"
+          # Placeholder for actual security scanning tool
+          # e.g., Snyk, Frogbot, CodeQL, etc.
+
+      - name: Job Duration
+        id: duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "Job duration: ${duration}s"
+          echo "job_duration=${duration}" >> $GITHUB_OUTPUT
+          echo "### Security Scan Metrics :shield:" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Scan Type: ${{ inputs.scan-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: small" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: security" >> $GITHUB_STEP_SUMMARY

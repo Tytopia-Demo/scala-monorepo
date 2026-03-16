@@ -1,0 +1,229 @@
+# Example CI workflow demonstrating runner right-sizing best practices
+# This workflow showcases proper runner selection, timeout configuration,
+# execution time tracking, and cost monitoring for a Scala monorepo
+
+name: CI Pipeline (Optimized)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  # Global environment variables for cost tracking
+  PROJECT: "scala-monorepo"
+
+jobs:
+  # Linting and code quality - lightweight job using small runner
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest  # Small runner sufficient
+    timeout-minutes: 5  # Short timeout for quick job
+    env:
+      COST_CENTER: "quality"
+      RUNNER_SIZE: "small"
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Scala
+        uses: olafurpg/setup-scala@v14
+        with:
+          java-version: "adopt@1.8"
+
+      - name: Check formatting
+        run: |
+          echo "Running scalafmt check..."
+          # sbt scalafmtCheck
+
+      - name: Job Duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "### Lint Job Metrics :mag:" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: small" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: quality" >> $GITHUB_STEP_SUMMARY
+
+  # Unit tests - parallelized across modules using matrix
+  test:
+    name: Test - ${{ matrix.module }}
+    runs-on: ubuntu-latest  # Small runner for individual module tests
+    timeout-minutes: 10  # Appropriate for unit tests
+    env:
+      COST_CENTER: "testing"
+      RUNNER_SIZE: "small"
+
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - catalog-service
+          - fraud-service
+          - order-workflow-service
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'sbt'
+
+      - name: Cache SBT dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+          key: ${{ runner.os }}-sbt-${{ matrix.module }}-${{ hashFiles(format('{0}/**/build.sbt', matrix.module)) }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-${{ matrix.module }}-
+
+      - name: Run tests
+        working-directory: ${{ matrix.module }}
+        run: sbt test
+
+      - name: Job Duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "### Test Job Metrics :test_tube:" >> $GITHUB_STEP_SUMMARY
+          echo "- Module: ${{ matrix.module }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: small" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: testing" >> $GITHUB_STEP_SUMMARY
+
+  # Build job - medium complexity requiring more resources
+  build:
+    name: Build
+    runs-on: ubuntu-latest  # Could use larger runner if needed
+    timeout-minutes: 15  # Scala builds can take time
+    needs: [lint, test]
+    env:
+      COST_CENTER: "build"
+      RUNNER_SIZE: "small"  # Start small, scale up if needed
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'sbt'
+
+      - name: Cache SBT dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.m2/repository
+          key: ${{ runner.os }}-build-${{ hashFiles('**/build.sbt', '**/project/**.scala') }}
+          restore-keys: |
+            ${{ runner.os }}-build-
+
+      - name: Compile all modules
+        run: |
+          echo "Building all modules..."
+          # sbt compile
+
+      - name: Package
+        run: |
+          echo "Packaging artifacts..."
+          # sbt package
+
+      - name: Job Duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "### Build Job Metrics :package:" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: small" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: build" >> $GITHUB_STEP_SUMMARY
+
+  # Security scanning - lightweight job
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest  # Small runner sufficient for scanning
+    timeout-minutes: 10
+    env:
+      COST_CENTER: "security"
+      RUNNER_SIZE: "small"
+
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run dependency check
+        run: |
+          echo "Running security scan..."
+          # Example: dependency-check, snyk, etc.
+
+      - name: Job Duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "### Security Scan Metrics :shield:" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: small" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: security" >> $GITHUB_STEP_SUMMARY
+
+  # Summary job to aggregate metrics
+  metrics-summary:
+    name: Workflow Metrics Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    needs: [lint, test, build, security-scan]
+    if: always()
+
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# Workflow Execution Summary :chart_with_upwards_trend:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Runner Sizing Strategy" >> $GITHUB_STEP_SUMMARY
+          echo "- **Lint**: small runner (quality checks are lightweight)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test**: small runner per module (parallelized for efficiency)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Build**: small runner (with caching to reduce build time)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Security**: small runner (scanning is CPU-light)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Cost Centers" >> $GITHUB_STEP_SUMMARY
+          echo "- Quality: lint job" >> $GITHUB_STEP_SUMMARY
+          echo "- Testing: test jobs (3 modules)" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: build job" >> $GITHUB_STEP_SUMMARY
+          echo "- Security: security-scan job" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "See individual job summaries for detailed execution metrics." >> $GITHUB_STEP_SUMMARY

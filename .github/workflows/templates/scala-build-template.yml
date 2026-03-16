@@ -1,0 +1,84 @@
+# Reusable workflow template for Scala/SBT builds
+# This template demonstrates proper runner sizing and cost monitoring for Scala builds
+
+name: Scala Build Template
+
+on:
+  workflow_call:
+    inputs:
+      scala-version:
+        description: 'Scala version to use'
+        required: false
+        type: string
+        default: '2.12.6'
+      runner-size:
+        description: 'Runner size: small, medium, or large'
+        required: false
+        type: string
+        default: 'small'
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 15
+      working-directory:
+        description: 'Working directory for the build'
+        required: false
+        type: string
+        default: '.'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Adjust based on runner-size input if using custom runners
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    env:
+      COST_CENTER: "build"
+      RUNNER_SIZE: ${{ inputs.runner-size }}
+      PROJECT: ${{ github.event.repository.name }}
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'sbt'
+
+      - name: Cache SBT
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.m2/repository
+          key: ${{ runner.os }}-sbt-${{ hashFiles('**/build.sbt', '**/project/**.scala') }}
+          restore-keys: |
+            ${{ runner.os }}-sbt-
+
+      - name: Compile
+        working-directory: ${{ inputs.working-directory }}
+        run: sbt ++${{ inputs.scala-version }} compile
+
+      - name: Test
+        working-directory: ${{ inputs.working-directory }}
+        run: sbt ++${{ inputs.scala-version }} test
+
+      - name: Job Duration
+        id: duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "Job duration: ${duration}s"
+          echo "job_duration=${duration}" >> $GITHUB_OUTPUT
+          echo "### Job Execution Metrics :stopwatch:" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: ${{ inputs.runner-size }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: build" >> $GITHUB_STEP_SUMMARY

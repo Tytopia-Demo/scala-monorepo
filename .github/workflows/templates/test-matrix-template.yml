@@ -1,0 +1,89 @@
+# Reusable workflow template for matrix testing
+# This template demonstrates parallelizing tests across multiple runners
+
+name: Test Matrix Template
+
+on:
+  workflow_call:
+    inputs:
+      runner-size:
+        description: 'Runner size for each matrix job'
+        required: false
+        type: string
+        default: 'small'
+      timeout-minutes:
+        description: 'Job timeout in minutes'
+        required: false
+        type: number
+        default: 15
+
+jobs:
+  test-matrix:
+    runs-on: ubuntu-latest  # Adjust based on runner-size input
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+
+    strategy:
+      matrix:
+        project:
+          - akka-sample-camel-java
+          - akka-sample-camel-scala
+          - akka-sample-cluster-java
+          - akka-sample-cluster-scala
+          - akka-sample-fsm-java
+          - akka-sample-main-java
+          - akka-sample-main-scala
+      fail-fast: false
+
+    env:
+      COST_CENTER: "testing"
+      RUNNER_SIZE: ${{ inputs.runner-size }}
+      PROJECT: ${{ matrix.project }}
+
+    steps:
+      - name: Job Start Time
+        id: start
+        run: echo "start_time=$(date +%s)" >> $GITHUB_OUTPUT
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'sbt'
+
+      - name: Cache Dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.ivy2/cache
+            ~/.sbt
+            ~/.m2/repository
+          key: ${{ runner.os }}-${{ matrix.project }}-${{ hashFiles(format('{0}/**/build.sbt', matrix.project)) }}
+          restore-keys: |
+            ${{ runner.os }}-${{ matrix.project }}-
+
+      - name: Run Tests
+        working-directory: ${{ matrix.project }}
+        run: |
+          if [ -f "pom.xml" ]; then
+            mvn test
+          else
+            sbt test
+          fi
+
+      - name: Job Duration
+        id: duration
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          duration=$((end_time - ${{ steps.start.outputs.start_time }}))
+          echo "Job duration: ${duration}s"
+          echo "job_duration=${duration}" >> $GITHUB_OUTPUT
+          echo "### Test Execution Metrics :test_tube:" >> $GITHUB_STEP_SUMMARY
+          echo "- Project: ${{ matrix.project }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Duration: ${duration}s" >> $GITHUB_STEP_SUMMARY
+          echo "- Runner Size: ${{ inputs.runner-size }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Cost Center: testing" >> $GITHUB_STEP_SUMMARY

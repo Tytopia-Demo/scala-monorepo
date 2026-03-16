@@ -1,0 +1,160 @@
+# Runner Configuration Reference
+# This file defines standardized runner configurations for different job types
+# Use this as a reference when creating or updating workflows
+
+# GitHub Actions Runner Configurations
+github_actions:
+  runners:
+    small:
+      runs_on: ubuntu-latest
+      description: "2-core CPU, 7GB RAM - for lightweight jobs"
+      timeout_minutes: 10
+      use_cases:
+        - linting
+        - formatting
+        - security_scans
+        - small_unit_tests
+        - documentation
+
+    medium:
+      runs_on: ubuntu-latest
+      description: "2-core CPU, 7GB RAM - standard for most jobs"
+      timeout_minutes: 15
+      use_cases:
+        - module_builds
+        - integration_tests
+        - docker_builds
+        - medium_test_suites
+
+    large:
+      runs_on: ubuntu-latest
+      description: "For heavy workloads (upgrade to larger runner if available)"
+      timeout_minutes: 30
+      use_cases:
+        - full_monorepo_builds
+        - multi_jvm_tests
+        - performance_tests
+        - large_parallel_suites
+
+  # Job Type Mappings
+  job_types:
+    security_scan:
+      runner: small
+      timeout: 10
+      cost_center: security
+
+    lint:
+      runner: small
+      timeout: 5
+      cost_center: quality
+
+    unit_test:
+      runner: small
+      timeout: 10
+      cost_center: testing
+
+    integration_test:
+      runner: medium
+      timeout: 15
+      cost_center: testing
+
+    build:
+      runner: medium
+      timeout: 15
+      cost_center: build
+
+    deploy:
+      runner: small
+      timeout: 10
+      cost_center: deploy
+
+# CircleCI Resource Class Configurations
+circleci:
+  resource_classes:
+    small:
+      resource_class: small
+      specs: "1 vCPU, 2GB RAM"
+      credits_per_minute: 5
+      use_cases:
+        - simple_tests
+        - linting
+        - security_scans
+        - deploys
+
+    medium:
+      resource_class: medium
+      specs: "2 vCPUs, 4GB RAM"
+      credits_per_minute: 10
+      use_cases:
+        - scala_builds
+        - docker_builds
+        - integration_tests
+
+    medium_plus:
+      resource_class: medium+
+      specs: "3 vCPUs, 6GB RAM"
+      credits_per_minute: 15
+      use_cases:
+        - large_scala_builds
+        - multi_jvm_tests
+        - heavy_test_suites
+
+    large:
+      resource_class: large
+      specs: "4 vCPUs, 8GB RAM"
+      credits_per_minute: 20
+      use_cases:
+        - monorepo_builds
+        - performance_tests
+        - parallel_heavy_tests
+
+  # Job Type Mappings
+  job_types:
+    build:
+      resource_class: medium
+      cost_center: build
+
+    test:
+      resource_class: small
+      cost_center: testing
+
+    integration_test:
+      resource_class: medium
+      cost_center: testing
+
+    security:
+      resource_class: small
+      cost_center: security
+
+# Cost Centers for Tracking
+cost_centers:
+  - security
+  - quality
+  - testing
+  - build
+  - deploy
+
+# Recommended Timeout Values (minutes)
+timeouts:
+  linting: 5
+  security_scan: 10
+  unit_test: 10
+  integration_test: 15
+  build: 15
+  multi_jvm_test: 20
+  performance_test: 30
+  deploy: 10
+
+# Monitoring and Metrics
+monitoring:
+  track_execution_time: true
+  track_cost_center: true
+  track_runner_size: true
+  output_to_summary: true
+
+  metrics_to_collect:
+    - job_duration
+    - runner_size
+    - cost_center
+    - cache_hit_rate
+    - success_rate
