@@ -89,3 +89,34 @@ factorial2.txt
 
 # Default sigar library extract location.
 native/
+
+# Java compiled output and JVM crash dumps
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+replay_pid*
+
+# SBT meta-project build outputs
+project/target/
+project/project/
+
+# Scala Metals (VS Code / Metals IDE)
+.metals/
+.bloop/
+metals.sbt
+
+# Build Server Protocol (used by IntelliJ, Metals, etc.)
+.bsp/
+
+# Maven wrapper jar (should not be committed if absent from repo)
+.mvn/wrapper/maven-wrapper.jar
+
+# OS artifacts (Windows)
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
